@@ -1196,7 +1196,12 @@ function createRasterControl(
     });
   }
   for (const event of ["rasteradd", "rasterchange", "rasterremove"] as const) {
-    control.on(event, () => syncRasterLayersToStoreForRuntime(control));
+    control.on(event, () => {
+      // Engine changes and async WASM readiness can fire before saved rasters
+      // are restored. An empty rasterchange is not a layer removal.
+      if (event === "rasterchange" && control.getRasters().length === 0) return;
+      syncRasterLayersToStoreForRuntime(control);
+    });
   }
   // Free the per-layer classification GPU texture when its raster is dropped.
   // The control owns the File-backed bytes blob (source.objectUrl) and revokes
