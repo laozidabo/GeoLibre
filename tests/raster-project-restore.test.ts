@@ -252,6 +252,37 @@ it("preserves saved rasters when WASM onReady fires while the desktop reader is 
   assert.equal(useAppStore.getState().layers[0]?.metadata.localFilePath, localPath);
 });
 
+it("preserves saved rasters when the panel opens while the desktop reader is pending", async () => {
+  const harness = await mountedEmptyControl();
+  const layer = savedLocalRaster();
+  useAppStore.setState({ layers: [layer] });
+  let reads = 0;
+  let finishRead!: (url: string) => void;
+  const pendingRead = new Promise<string>((resolve) => {
+    finishRead = resolve;
+  });
+  setLocalRasterFileReader(() => {
+    reads++;
+    return pendingRead;
+  });
+
+  restoreRasterLayers(harness.app);
+  await waitFor(() => assert.equal(reads, 1));
+  try {
+    // The harness never mounts the panel DOM, so expand() skips its event;
+    // emit the one a user opening the mounted panel fires.
+    (harness.control as unknown as { _emit(event: string): void })._emit("expand");
+    assert.deepEqual(
+      useAppStore.getState().layers.map(({ id }) => id),
+      [layer.id],
+    );
+  } finally {
+    finishRead(assetUrl);
+    await waitFor(() => assert.ok(harness.control?.getRaster(layer.id)));
+  }
+  assert.equal(useAppStore.getState().layers[0]?.metadata.localFilePath, localPath);
+});
+
 it("still syncs populated rasterchange and removes the last raster after restore", async () => {
   const harness = await mountedEmptyControl();
   const layer = savedLocalRaster();

@@ -1283,8 +1283,13 @@ function createRasterControl(
   // Safe: expand()/collapse() delegate to toggle(), which flips
   // _state.collapsed BEFORE emitting the event (re-verified against v0.12.0) --
   // re-verify that ordering when bumping the dependency.
-  const panelStateSyncHandler: RasterControlEventHandler = () =>
+  // An empty control has no layer to record the panel state on, so syncing
+  // could only prune store layers -- including saved rasters whose local files
+  // a restore is still reading. Only rasterremove may do that.
+  const panelStateSyncHandler: RasterControlEventHandler = () => {
+    if (control.getRasters().length === 0) return;
     syncRasterLayersToStoreForRuntime(control);
+  };
   control.on("expand", panelStateSyncHandler);
   control.on("collapse", panelStateSyncHandler);
   wireRasterStoreSync(control);
